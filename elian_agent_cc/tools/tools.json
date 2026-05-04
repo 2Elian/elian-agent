@@ -1,0 +1,218 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "Read",
+      "description": "读取文件。也可读取 PDF、图片、Jupyter notebook。对于大文件，可使用 offset/limit 参数。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_path": { "type": "string", "description": "绝对文件路径" },
+          "offset": { "type": "integer", "description": "起始行（从 0 开始）" },
+          "limit": { "type": "integer", "description": "最大读取行数" }
+        },
+        "required": ["file_path"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "Write",
+      "description": "写入文件。如果文件已存在则覆盖。如需修改，优先使用 Edit。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_path": { "type": "string", "description": "绝对路径" },
+          "content": { "type": "string", "description": "要写入的内容" }
+        },
+        "required": ["file_path", "content"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "Edit",
+      "description": "在文件中进行精确字符串替换。使用 replace_all 可替换所有匹配项。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file_path": { "type": "string", "description": "要修改的文件" },
+          "old_string": { "type": "string", "description": "要替换的文本" },
+          "new_string": { "type": "string", "description": "替换后的文本" },
+          "replace_all": { "type": "boolean", "default": false }
+        },
+        "required": ["file_path", "old_string", "new_string"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "Glob",
+      "description": "快速文件模式匹配。支持 **/*.js、src/**/*.ts 等。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string" },
+          "path": { "type": "string", "description": "搜索目录" }
+        },
+        "required": ["pattern"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "Grep",
+      "description": "使用正则表达式搜索代码。支持 glob 过滤和输出模式。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "正则表达式模式" },
+          "path": { "type": "string", "description": "搜索目录" },
+          "glob": { "type": "string", "description": "文件过滤器，例如 \"*.py\"" },
+          "output_mode": {
+            "type": "string",
+            "enum": ["content", "files_with_matches", "count"],
+            "default": "files_with_matches"
+          },
+          "-i": { "type": "boolean", "description": "忽略大小写" },
+          "head_limit": { "type": "integer", "default": 50 }
+        },
+        "required": ["pattern"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "Bash",
+      "description": "执行 bash 命令并返回输出。工作目录会保持，但 shell 状态不会。\n\n重要提示：尽可能使用 Read/Edit/Write/Glob/Grep 而不是 Bash。仅在需要 shell 特定操作时使用 Bash。\n\n说明：\n- 对包含空格的文件路径加引号\n- 使用绝对路径并避免使用 cd\n- 可选超时（最大 600000 毫秒，默认 120000 毫秒）\n- 长时间运行的命令使用 run_in_background\n- 对于 git：创建新提交，除非明确要求，否则不要跳过钩子（--no-verify）\n- 不要在可以立即运行的命令之间使用 sleep",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "command": { "type": "string", "description": "要执行的命令" },
+          "timeout": { "type": "integer", "description": "超时时间（毫秒，最大 600000）", "default": 120000 },
+          "description": { "type": "string", "description": "对该命令作用的清晰描述" },
+          "run_in_background": { "type": "boolean", "description": "后台运行", "default": false },
+          "dangerouslyDisableSandbox": { "type": "boolean", "description": "覆盖沙箱模式", "default": false }
+        },
+        "required": ["command"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "AskUserQuestion",
+      "description": "向用户提出多项选择题，以收集信息、澄清模糊之处、了解偏好、做出决策或提供选择。\n\n在执行过程中当你需要向用户提问时使用此工具。这使你能够：\n1. 收集用户偏好或需求\n2. 澄清模糊的指令\n3. 在执行过程中获取关于实现选择的决策\n4. 向用户提供关于后续方向的选择。\n\n使用说明：\n- 用户始终可以选择“其他”来提供自定义文本输入\n- 使用 multiSelect: true 允许为一个问题选择多个答案\n- 如果你推荐某个特定选项，请将该选项作为列表中的第一个，并在标签末尾加上“（推荐）”\n\n计划模式说明：在计划模式下，在最终确定计划之前，使用此工具澄清需求或选择方法。不要使用此工具询问“我的计划准备好了吗？”或“我应该继续吗？”——请使用 ExitPlanMode 进行计划批准。重要提示：请不要在你的问题中引用“计划”（例如，“你对计划有反馈吗？”、“计划看起来好吗？”），因为在用户调用 ExitPlanMode 之前，UI 中看不到计划。如果需要计划批准，请使用 ExitPlanMode。\n\n预览功能：\n当展示需要用户视觉比较的具体成果时，可在选项上使用可选的 `preview` 字段：\n- UI 布局或组件的 ASCII 原型\n- 展示不同实现的代码片段\n- 图表变体\n- 配置示例\n\n预览内容以 markdown 格式呈现在等宽框中。支持带换行的多行文本。当任何选项带有预览时，UI 会切换到并排布局，左侧为垂直选项列表，右侧为预览。对于简单的偏好问题（标签和描述足以说明情况），请不要使用预览。注意：预览仅支持单选问题（不支持 multiSelect）。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "questions": {
+            "type": "array",
+            "description": "向用户提出的问题（1-4 个问题）",
+            "minItems": 1,
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "properties": {
+                "question": { "type": "string", "description": "向用户提出的完整问题。应清晰、具体，并以问号结尾。例如：“我们应该使用哪个库进行日期格式化？”如果 multiSelect 为 true，请相应措辞，例如：“你想启用哪些功能？”" },
+                "header": { "type": "string", "description": "显示为标签/徽章的极短标签（最多 12 个字符）。示例：“认证方式”、“库”、“方法”。", "maxLength": 12 },
+                "options": {
+                  "type": "array",
+                  "description": "该问题的可用选项。必须有 2-4 个选项。每个选项应是互斥的（除非启用 multiSelect）。没有“其他”选项，系统会自动提供。",
+                  "minItems": 2,
+                  "maxItems": 4,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "label": { "type": "string", "description": "该选项的显示文本，用户将看到并选择。应简洁（1-5 个词）并清晰描述选项。" },
+                      "description": { "type": "string", "description": "该选项含义或选择后会发生什么的说明。有助于提供权衡或影响的背景信息。" },
+                      "preview": { "type": "string", "description": "当焦点在该选项上时渲染的可选预览内容。用于帮助用户比较选项的 mockup、代码片段或视觉对比。" }
+                    },
+                    "required": ["label", "description"]
+                  }
+                },
+                "multiSelect": { "type": "boolean", "description": "设置为 true 以允许用户选择多个选项而非仅一个。当选项非互斥时使用。", "default": false }
+              },
+              "required": ["question", "header", "options", "multiSelect"]
+            }
+          },
+          "answers": { "type": "object", "description": "权限组件收集的用户答案", "additionalProperties": { "type": "string" } },
+          "annotations": { "type": "object", "description": "可选的每个问题的用户注释（例如，关于预览选择的备注）。以问题文本为键。", "additionalProperties": { "type": "object", "properties": { "preview": { "type": "string" }, "notes": { "type": "string" } } }
+        },
+        "required": ["questions"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "EnterPlanMode",
+      "description": "请求进入计划模式的权限，以便在执行实现之前对复杂任务进行探索和设计。在编写代码之前，让用户确认你的方法，以避免浪费精力并确保一致性。\n\n当你准备开始一项非平凡的实现任务时，主动使用此工具。在编写代码之前让用户确认你的方法可以防止返工并确保对齐。此工具将你过渡到计划模式，在该模式下你可以探索代码库并设计实现方法以供用户批准。\n\n## 何时使用此工具\n\n**更倾向于使用 EnterPlanMode** 来处理实现任务，除非是简单任务。满足以下任一条件时使用：\n\n1. **新功能实现**：添加有意义的新功能\n   - 例如：“添加一个注销按钮”——应该放在哪里？点击后应该发生什么？\n   - 例如：“添加表单验证”——什么规则？什么错误信息？\n\n2. **多种有效方法**：该任务可以通过多种不同方式解决\n   - 例如：“为 API 添加缓存”——可以使用 Redis、内存、文件等\n   - 例如：“提升性能”——有多种可能的优化策略\n\n3. **代码修改**：影响现有行为或结构的更改\n   - 例如：“更新登录流程”——具体应该更改什么？\n   - 例如：“重构这个组件”——目标架构是什么？\n\n4. **架构决策**：任务需要在模式或技术之间选择\n   - 例如：“添加实时更新”——WebSocket vs SSE vs 轮询\n   - 例如：“实现状态管理”——Redux vs Context vs 自定义解决方案\n\n5. **多文件更改**：任务可能涉及超过 2-3 个文件\n   - 例如：“重构身份验证系统”\n   - 例如：“添加一个带有测试的新 API 端点”\n\n6. **需求不明确**：需要先探索才能理解完整范围\n   - 例如：“让应用更快”——需要分析并定位瓶颈\n   - 例如：“修复结账中的 bug”——需要调查根本原因\n\n7. **用户偏好重要**：实现可以有多种合理方式\n   - 如果你会使用 AskUserQuestion 来澄清方法，请改用 EnterPlanMode\n   - 计划模式让你可以先探索，然后在上下文中呈现选项\n\n## 何时不使用此工具\n\n仅在简单任务时跳过 EnterPlanMode：\n- 单行或几行的修复（错字、明显的 bug、小调整）\n- 添加一个需求明确的单一函数\n- 用户已给出非常具体、详细指令的任务\n- 纯研究/探索任务（请使用 Agent 工具配合 explore agent）\n\n## 计划模式下会发生什么\n\n在计划模式中，你将：\n1. 使用 Glob、Grep 和 Read 工具彻底探索代码库\n2. 了解现有模式和架构\n3. 设计实现方法\n4. 向用户展示你的计划以供批准\n5. 如需澄清方法，使用 AskUserQuestion\n6. 准备实现时使用 ExitPlanMode 退出计划模式\n\n## 示例\n\n### 好的做法 —— 使用 EnterPlanMode：\n用户：“为应用添加用户认证”\n- 需要架构决策（session vs JWT、token 存储位置、中间件结构）\n\n用户：“优化数据库查询”\n- 多种可能方法，需要先分析，影响重大\n\n用户：“实现暗色模式”\n- 主题系统的架构决策，影响许多组件\n\n用户：“在用户资料中添加删除按钮”\n- 看起来简单但涉及：放置位置、确认对话框、API 调用、错误处理、状态更新\n\n### 不好的做法 —— 不使用 EnterPlanMode：\n用户：“修复 README 中的错字”\n- 直接明了，无需计划\n\n用户：“添加 console.log 来调试这个函数”\n- 简单，显而易见的实现\n\n用户：“哪些文件处理路由？”\n- 研究任务，不是实现计划\n\n## 重要说明\n\n- 此工具需要用户批准——他们必须同意进入计划模式\n- 如果不确定是否使用，宁可选择计划——在前期对齐比返工要好\n- 用户喜欢在对其代码库进行重大更改之前被征求意见",
+      "parameters": { "type": "object", "properties": {} }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "ExitPlanMode",
+      "description": "在你完成计划的编写并准备好等待用户批准后退出计划模式。用户将审核你的计划，并在实施开始前批准或请求更改。\n\n当你完成计划的编写并准备好等待用户批准时退出计划模式。\n\n## 此工具的工作方式\n- 你应该已经将计划写入计划文件\n- 此工具表示你已完成计划，准备好让用户审核和批准\n- 用户审核时将会看到你的计划文件内容\n\n## 何时使用此工具\n当任务需要对需要编写代码的实现步骤进行规划时使用。对于研究任务（你在收集信息、搜索文件、阅读文件或试图理解代码库），不要使用此工具。\n\n## 使用此工具之前\n确保你的计划完整且无歧义：\n- 如果对需求或方法有未解决的问题，请先使用 AskUserQuestion\n- 一旦计划最终确定，使用此工具请求批准\n\n**重要提示：** 不要使用 AskUserQuestion 来询问“这个计划可以吗？”或“我应该继续吗？”——这正是此工具的用途。ExitPlanMode 本质上是在请求用户批准你的计划。",
+      "parameters": { "type": "object", "properties": {} }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "SendMessage",
+      "description": "向正在运行的 agent 发送消息。用于与异步 agent 继续对话。\n\n通信模式：\n- 按名称或 ID 发送给特定 agent\n- 使用 '*' 广播给所有 agent\n- 接收 task_notification 响应\n\nagent 会将你的消息作为其下一个用户输入，并继续工作。这允许与后台 agent 进行迭代协作。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "to": { "type": "string", "description": "agent 名称、agent ID 或用于广播的 '*'" },
+          "message": { "type": "string", "description": "要发送给 agent 的消息" },
+          "message_type": {
+            "type": "string",
+            "enum": ["direct", "shutdown_request", "plan_approval_response"],
+            "description": "消息类型",
+            "default": "direct"
+          }
+        },
+        "required": ["to", "message"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "TaskOutput",
+      "description": "获取正在运行或已完成的后台任务/agent 的输出。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": { "type": "string", "description": "要获取输出的任务/agent ID" },
+          "block": { "type": "boolean", "default": true, "description": "是否等待完成" },
+          "timeout": { "type": "integer", "default": 30000, "description": "最大等待毫秒数" }
+        },
+        "required": ["task_id"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "TaskStop",
+      "description": "通过 ID 停止正在运行的后台任务或 agent。",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "task_id": { "type": "string", "description": "要停止的任务/agent ID" }
+        },
+        "required": ["task_id"]
+      }
+    }
+  }
+]

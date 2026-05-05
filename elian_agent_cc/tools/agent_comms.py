@@ -11,8 +11,8 @@ Supports:
   - Structured messages (shutdown_request, plan_approval_response)
 """
 import asyncio
-from tools.base import Tool, ToolResult, tool_registry
-from models import ToolUseContext
+from elian_agent_cc.tools.base import Tool, ToolResult, tool_registry
+from elian_agent_cc.models import ToolUseContext
 from typing import Any
 
 

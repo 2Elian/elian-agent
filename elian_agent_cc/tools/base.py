@@ -6,8 +6,8 @@ to_schema(), description(), isReadOnly(), isConcurrencySafe().
 """
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable, Literal
-from models import (
+from typing import Any, Callable
+from elian_agent_cc.models import (
     ToolUseContext, PermissionResult, ValidationResult,
     ToolPermissionContext, PermissionMode,
 )

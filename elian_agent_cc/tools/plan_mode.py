@@ -14,8 +14,8 @@ Plan mode flow:
 """
 from dataclasses import dataclass, field
 from typing import Any
-from tools.base import Tool, ToolResult, tool_registry
-from models import ToolUseContext, PermissionResult, PermissionMode
+from elian_agent_cc.tools.base import Tool, ToolResult, tool_registry
+from elian_agent_cc.models import ToolUseContext, PermissionResult, PermissionMode
 
 
 # =============================================================================

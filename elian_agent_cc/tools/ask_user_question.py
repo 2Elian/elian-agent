@@ -10,8 +10,8 @@ Supports: multi-select, recommended options, preview content, free-form "Other".
 """
 from dataclasses import dataclass, field
 from typing import Any, Literal
-from tools.base import Tool, ToolResult, tool_registry
-from models import ToolUseContext, PermissionResult
+from elian_agent_cc.tools.base import Tool, ToolResult, tool_registry
+from elian_agent_cc.models import ToolUseContext, PermissionResult
 
 
 # =============================================================================

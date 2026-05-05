@@ -11,8 +11,8 @@ Multi-layer security:
 """
 import asyncio, os, re
 from pathlib import Path
-from tools.base import Tool, ToolResult, tool_registry
-from models import ToolUseContext, PermissionResult, ValidationResult
+from elian_agent_cc.tools.base import Tool, ToolResult, tool_registry
+from elian_agent_cc.models import ToolUseContext, PermissionResult, ValidationResult
 
 
 # Destructive patterns (from bashSecurity.ts)
@@ -90,13 +90,14 @@ Instructions:
         security = self._security_check(cmd)
         if not security.is_valid:
             return ToolResult(content=security.message, is_error=True)
-
+        # TODO 可能危险的命令 未作处理
         destructive, warning = self._check_destructive(cmd)
         path_ok, path_msg = self._validate_paths(cmd)
         if not path_ok:
             return ToolResult(content=f"Path safety: {path_msg}", is_error=True)
 
         if run_bg:
+            # 耗时的bash命令 --> 起一个子线程 到后台执行任务
             asyncio.create_task(self._run(cmd, cwd, timeout_ms / 1000))
             return ToolResult(content=f"Background task started: {cmd}")
 
@@ -141,11 +142,15 @@ Instructions:
         return ValidationResult(True)
 
     def _security_check(self, cmd: str) -> ValidationResult:
+        # cwd是bash命令 这里做命令的安全强校验：比如rm -rf
+        # TODO 企业级别的agent的前置安全检查要写在这里，不包括路径校验
+        """安全检查：判断命令是否以 && / || / | 开头"""
         if re.match(r'^\s*(&&|\|\||\|)\s', cmd):
             return ValidationResult(False, "Command starts with an operator")
         return ValidationResult(True)
 
     def _check_destructive(self, cmd: str) -> tuple[bool, str]:
+        """基于规则的危险命令检测器 与_security_check的区别是：这个函数不直接拒绝命令，而是标记危险"""
         for pattern, warning in DESTRUCTIVE:
             if re.search(pattern, cmd, re.IGNORECASE):
                 return True, warning
@@ -165,6 +170,8 @@ Instructions:
         return False
 
     def _validate_paths(self, cmd: str) -> tuple[bool, str]:
+        # TODO 企业级agent 如果不想让模型读取某个路径下的东西 把逻辑写到这里 这里只负责路径安全校验
+        """输出重定向目标路径安全校: 通过正则提取 shell 重定向目标路径，并阻止向 /etc/ 或 /proc/ 等关键系统路径写入，从而防止文件覆盖型系统破坏攻击"""
         redirects = re.findall(r'>\s*(\S+)', cmd)
         for target in redirects:
             if target in ('/etc/passwd', '/etc/shadow', '/etc/sudoers'):
@@ -186,6 +193,15 @@ Instructions:
         return ""
 
     async def _run(self, cmd: str, cwd: str, timeout: float) -> tuple[str, str, int]:
+        """
+        输入：
+            参数	含义
+            cmd	shell 命令
+            cwd	工作目录
+            timeout	超时时间
+
+        """
+        """异步 shell 命令执行器: 在指定目录 + 超时控制下执行 shell 命令，并返回 stdout / stderr / exit code。"""
         proc = await asyncio.create_subprocess_shell(
             cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
             cwd=cwd, executable='bash' if os.name == 'nt' else None,
